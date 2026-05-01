@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Savings Goals Tracker</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f4f0; min-height: 100vh; padding: 2rem 1rem; color: #1a1a18; }
+  .container { max-width: 680px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 500; }
+  .top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+  .hint { font-size: 12px; color: #888780; }
+  .summary-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1.5rem; }
+  .metric { background: #eeecea; border-radius: 8px; padding: 12px 14px; }
+  .metric-label { font-size: 12px; color: #888780; margin-bottom: 4px; }
+  .metric-val { font-size: 20px; font-weight: 500; }
+  .goals-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 1.25rem; }
+  .goal-card { background: #fff; border: 0.5px solid #d3d1c7; border-radius: 12px; padding: 1rem 1.25rem; transition: box-shadow 0.15s, opacity 0.15s; user-select: none; }
+  .goal-card.done { border-color: #1D9E75; }
+  .goal-card.dragging { opacity: 0.4; }
+  .goal-card.drag-over { box-shadow: 0 0 0 2px #378ADD; }
+  .goal-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+  .drag-handle { display: flex; flex-direction: column; gap: 3px; padding: 4px 2px; cursor: grab; flex-shrink: 0; margin-top: 3px; }
+  .drag-handle:active { cursor: grabbing; }
+  .drag-handle span { display: block; width: 16px; height: 2px; background: #b4b2a9; border-radius: 2px; }
+  .priority-badge { font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 8px; background: #eeecea; color: #5f5e5a; flex-shrink: 0; margin-top: 3px; white-space: nowrap; }
+  .goal-info { flex: 1; min-width: 0; }
+  .goal-name { font-size: 15px; font-weight: 500; margin-bottom: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .goal-sub { font-size: 12px; color: #888780; }
+  .goal-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+  .btn-small { font-size: 12px; padding: 4px 10px; border: 0.5px solid #b4b2a9; border-radius: 8px; background: transparent; color: #5f5e5a; cursor: pointer; font-family: inherit; }
+  .btn-small:hover { background: #f1efe8; }
+  .btn-del { color: #E24B4A; border-color: #F09595; }
+  .btn-del:hover { background: #FCEBEB; }
+  .progress-track { height: 8px; background: #eeecea; border-radius: 999px; overflow: hidden; margin-bottom: 5px; }
+  .progress-fill { height: 100%; border-radius: 999px; transition: width 0.5s cubic-bezier(.4,0,.2,1); }
+  .progress-nums { display: flex; justify-content: space-between; font-size: 12px; color: #888780; }
+  .progress-pct { font-weight: 500; color: #1a1a18; }
+  .badge-done { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 8px; background: #E1F5EE; color: #0F6E56; font-weight: 500; }
+  .deposit-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  .deposit-row input { flex: 1; }
+  .add-section { background: #fff; border: 0.5px solid #d3d1c7; border-radius: 12px; padding: 1rem 1.25rem; }
+  .add-title { font-size: 14px; font-weight: 500; color: #888780; margin-bottom: 10px; }
+  .add-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 12px; color: #888780; }
+  input[type=text], input[type=number] { width: 100%; padding: 7px 10px; font-size: 14px; border: 0.5px solid #b4b2a9; border-radius: 8px; background: #fff; color: #1a1a18; font-family: inherit; }
+  input:focus { outline: none; box-shadow: 0 0 0 2px #378ADD44; border-color: #378ADD; }
+  .btn-add { width: 100%; padding: 9px; font-size: 14px; border: 0.5px solid #b4b2a9; border-radius: 8px; background: #fff; color: #1a1a18; cursor: pointer; font-family: inherit; font-weight: 500; }
+  .btn-add:hover { background: #f1efe8; }
+  .btn-deposit { font-size: 13px; padding: 6px 14px; border: 0.5px solid #b4b2a9; border-radius: 8px; background: transparent; color: #1a1a18; cursor: pointer; font-family: inherit; white-space: nowrap; }
+  .btn-deposit:hover { background: #f1efe8; }
+  .empty { text-align: center; padding: 2rem; color: #888780; font-size: 14px; }
+  .saved-notice { font-size: 11px; color: #888780; text-align: center; margin-top: 1rem; }
+  @media (max-width: 480px) {
+    .add-grid { grid-template-columns: 1fr 1fr; }
+    .add-grid .field:first-child { grid-column: 1 / -1; }
+    .summary-row { grid-template-columns: 1fr 1fr; }
+    .summary-row .metric:last-child { grid-column: 1 / -1; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="top">
+    <h1>Savings goals</h1>
+    <span class="hint">Drag to reorder priority</span>
+  </div>
+
+  <div class="summary-row">
+    <div class="metric"><div class="metric-label">Total saved</div><div class="metric-val" id="s-saved">$0</div></div>
+    <div class="metric"><div class="metric-label">Total target</div><div class="metric-val" id="s-target">$0</div></div>
+    <div class="metric"><div class="metric-label">Goals completed</div><div class="metric-val" id="s-done">0 / 0</div></div>
+  </div>
+
+  <div class="goals-list" id="goals-list"></div>
+
+  <div class="add-section">
+    <div class="add-title">Add new goal</div>
+    <div class="add-grid">
+      <div class="field"><label>Goal name</label><input type="text" id="inp-name" placeholder="e.g. Europe trip" /></div>
+      <div class="field"><label>Target ($)</label><input type="number" id="inp-target" placeholder="5000" min="1" /></div>
+      <div class="field"><label>Saved so far ($)</label><input type="number" id="inp-saved" placeholder="0" min="0" /></div>
+    </div>
+    <button class="btn-add" onclick="addGoal()">+ Add goal</button>
+  </div>
+
+  <div class="saved-notice">Your goals are saved automatically in this browser.</div>
+</div>
+
+<script>
+  const COLORS = ['#378ADD','#1D9E75','#7F77DD','#D85A30','#BA7517','#D4537E'];
+  let goals = [];
+  let nextId = 1;
+  let dragSrcId = null;
+
+  function load() {
+    try {
+      const raw = localStorage.getItem('savings-goals');
+      if (raw) {
+        const data = JSON.parse(raw);
+        goals = data.goals || [];
+        nextId = data.nextId || (goals.length + 1);
+        return;
+      }
+    } catch(e) {}
+    goals = [
+      { id: 1, name: 'Emergency fund', target: 10000, saved: 4200 },
+      { id: 2, name: 'Europe trip', target: 5000, saved: 1850 },
+      { id: 3, name: 'New laptop', target: 1500, saved: 1500 },
+    ];
+    nextId = 4;
+  }
+
+  function save() {
+    try { localStorage.setItem('savings-goals', JSON.stringify({ goals, nextId })); } catch(e) {}
+  }
+
+  function fmt(n) { return '$' + Math.round(n).toLocaleString(); }
+  function pct(saved, target) { return Math.min(100, Math.round((saved / target) * 100)); }
+
+  function render() {
+    const list = document.getElementById('goals-list');
+    list.innerHTML = '';
+
+    if (goals.length === 0) {
+      list.innerHTML = '<div class="empty">No goals yet — add one below</div>';
+    } else {
+      goals.forEach((g, i) => {
+        const color = COLORS[i % COLORS.length];
+        const p = pct(g.saved, g.target);
+        const done = g.saved >= g.target;
+        const label = i === 0 ? '#1 Priority' : '#' + (i + 1);
+
+        const card = document.createElement('div');
+        card.className = 'goal-card' + (done ? ' done' : '');
+        card.draggable = true;
+        card.dataset.id = g.id;
+
+        card.innerHTML =
+          '<div class="goal-top">' +
+            '<div class="drag-handle" title="Drag to reorder"><span></span><span></span><span></span></div>' +
+            '<span class="priority-badge">' + label + '</span>' +
+            '<div class="goal-info">' +
+              '<div class="goal-name">' + g.name + (done ? '<span class="badge-done">Reached!</span>' : '') + '</div>' +
+              '<div class="goal-sub">' + fmt(g.saved) + ' saved of ' + fmt(g.target) + '</div>' +
+            '</div>' +
+            '<div class="goal-actions">' +
+              '<button class="btn-small" onclick="openDeposit(' + g.id + ')">+ Add</button>' +
+              '<button class="btn-small btn-del" onclick="deleteGoal(' + g.id + ')">Remove</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="progress-track"><div class="progress-fill" style="width:' + p + '%; background:' + color + ';"></div></div>' +
+          '<div class="progress-nums"><span>' + fmt(Math.max(0, g.target - g.saved)) + ' to go</span><span class="progress-pct">' + p + '%</span></div>' +
+          '<div class="deposit-row" id="dep-' + g.id + '" style="display:none;">' +
+            '<input type="number" id="dep-inp-' + g.id + '" placeholder="Amount to add ($)" min="1" />' +
+            '<button class="btn-deposit" onclick="deposit(' + g.id + ')">Deposit</button>' +
+            '<button class="btn-deposit" onclick="closeDeposit(' + g.id + ')">Cancel</button>' +
+          '</div>';
+
+        card.addEventListener('dragstart', function(e) {
+          dragSrcId = g.id;
+          setTimeout(function() { card.classList.add('dragging'); }, 0);
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        card.addEventListener('dragend', function() {
+          card.classList.remove('dragging');
+          document.querySelectorAll('.goal-card').forEach(function(c) { c.classList.remove('drag-over'); });
+        });
+        card.addEventListener('dragover', function(e) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          document.querySelectorAll('.goal-card').forEach(function(c) { c.classList.remove('drag-over'); });
+          if (g.id !== dragSrcId) card.classList.add('drag-over');
+        });
+        card.addEventListener('dragleave', function() { card.classList.remove('drag-over'); });
+        card.addEventListener('drop', function(e) {
+          e.preventDefault();
+          card.classList.remove('drag-over');
+          if (dragSrcId === null || dragSrcId === g.id) return;
+          var fromIdx = goals.findIndex(function(x) { return x.id === dragSrcId; });
+          var toIdx = goals.findIndex(function(x) { return x.id === g.id; });
+          var moved = goals.splice(fromIdx, 1)[0];
+          goals.splice(toIdx, 0, moved);
+          dragSrcId = null;
+          save();
+          render();
+        });
+
+        list.appendChild(card);
+      });
+    }
+
+    var totalSaved = goals.reduce(function(a, g) { return a + g.saved; }, 0);
+    var totalTarget = goals.reduce(function(a, g) { return a + g.target; }, 0);
+    var doneCount = goals.filter(function(g) { return g.saved >= g.target; }).length;
+    document.getElementById('s-saved').textContent = fmt(totalSaved);
+    document.getElementById('s-target').textContent = fmt(totalTarget);
+    document.getElementById('s-done').textContent = doneCount + ' / ' + goals.length;
+  }
+
+  function addGoal() {
+    var name = document.getElementById('inp-name').value.trim();
+    var target = parseFloat(document.getElementById('inp-target').value);
+    var saved = parseFloat(document.getElementById('inp-saved').value) || 0;
+    if (!name || !target || target <= 0) return;
+    goals.push({ id: nextId++, name: name, target: target, saved: Math.min(saved, target) });
+    document.getElementById('inp-name').value = '';
+    document.getElementById('inp-target').value = '';
+    document.getElementById('inp-saved').value = '';
+    save();
+    render();
+  }
+
+  function deleteGoal(id) {
+    goals = goals.filter(function(g) { return g.id !== id; });
+    save();
+    render();
+  }
+
+  function openDeposit(id) {
+    var row = document.getElementById('dep-' + id);
+    if (row) { row.style.display = 'flex'; document.getElementById('dep-inp-' + id).focus(); }
+  }
+
+  function closeDeposit(id) {
+    var row = document.getElementById('dep-' + id);
+    if (row) row.style.display = 'none';
+  }
+
+  function deposit(id) {
+    var inp = document.getElementById('dep-inp-' + id);
+    var amount = parseFloat(inp.value);
+    if (!amount || amount <= 0) return;
+    var g = goals.find(function(g) { return g.id === id; });
+    if (g) g.saved += amount;
+    inp.value = '';
+    save();
+    render();
+  }
+
+  load();
+  render();
+</script>
+</body>
+</html>
